@@ -1,3 +1,4 @@
+import shutil
 from pathlib import Path
 from torchvision.datasets import ImageFolder
 
@@ -5,12 +6,24 @@ from torchvision.datasets import ImageFolder
 class CloverDatasets(object):
 
     def __init__(self, data_path: str = 'clover_shared/datasets',
-                 out_path: str = 'datasets/clover_datasets'):
+                 out_path: str = 'datasets/clover_datasets',
+                 msl_class_map: str = 'msl_synset_words-indexed.txt'):
         self.data_path = Path(data_path)
         self.out_path = Path(out_path)
+        self.msl_class_map = msl_class_map
 
-    def generate_MSL_v2(self, ):
-        """Create Pytorch image dataset format commpatible directory structure"""
+    def generate_mslv2_dataset(self, msl_dataset_dir: str = 'msl_dataset'):
+        """Create Pytorch image dataset format compatible directory structure"""
+        train_path = self.out_path / msl_dataset_dir / 'train'
+        print(f"Deleting existing dataset at {self.out_path / msl_dataset_dir}")
+        if train_path.exists() and train_path.is_dir():
+            shutil.rmtree(train_path)
+        train_path.mkdir(parents=True, exist_ok=True)
+        # Create directory structure
+        for i in range(25):
+            print(train_path / f'class_{i}')
+            (train_path / f'class_{i}').mkdir()
+
 
 
 
