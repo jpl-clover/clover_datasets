@@ -4,12 +4,15 @@ from torchvision.datasets import ImageFolder
 
 class CloverDatasets(object):
 
-    def __init__(self, datapath: str = 'clover_shared/datasets',
-                 outpath: str = 'datasets/clover_datasets'):
-        self.datapath = Path(datapath)
+    def __init__(self, data_path: str = 'clover_shared/datasets',
+                 out_path: str = 'datasets/clover_datasets'):
+        self.data_path = Path(data_path)
+        self.out_path = Path(out_path)
 
-    def generate_MSL_v2(self):
+    def generate_MSL_v2(self, ):
         """Create Pytorch image dataset format commpatible directory structure"""
+
+
 
 
 
