@@ -5,7 +5,7 @@ import pandas as pd
 from torchvision.datasets import ImageFolder
 
 
-class CloverDatasets(object):
+class CLOVERDatasets(object):
 
     def __init__(self, data_path: str = 'clover_shared/datasets',
                  out_path: str = 'datasets/clover_datasets',
