@@ -38,21 +38,3 @@ class CloverDatasets(object):
                         self.out_path / train_path / f'class_{row.label}')
         value_counts = self.df_msl_train['label'].value_counts()
         print(f"MSLv2 training dataset summary:\n {value_counts}")
-
-
-
-def pct_train(BASE_IMG_PATH, TRAIN_LABELS,
-              BASE_DIR=Path('/home/kaipak/datasets/msl-v2.1-ssl-runs')):
-    dest_path = BASE_DIR / 'train'
-    print(dest_path)
-    if dest_path.exists() and dest_path.is_dir():
-        shutil.rmtree(dest_path)
-    dest_path.mkdir(parents=True, exist_ok=True)
-    print(dest_path)
-
-    # Make directories for all images
-    for label in LABEL_DESC.label_desc:
-        (dest_path / label).mkdir()
-
-    for i, row in TRAIN_LABELS.iterrows():
-        shutil.copy(BASE_IMG_PATH / row.img, dest_path / row.label_desc)
