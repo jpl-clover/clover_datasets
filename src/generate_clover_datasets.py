@@ -21,4 +21,4 @@ if __name__ == '__main__':
     clover_datasets = CLOVERDatasets(data_path=args.data_source, out_path=args.out_path)
 
     if args.generate_mslv2_dataset:
-        clover_datasets.generate_mslv2_dataset(args.generate_mslv2_dataset)
+        clover_datasets.create_mslv2_dataset(args.generate_mslv2_dataset)

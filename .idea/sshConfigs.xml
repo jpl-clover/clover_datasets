@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="SshConfigs">
+    <configs>
+      <sshConfig host="longhorn.tacc.utexas.edu" id="f65aecb3-fd09-4f09-9730-33d11a8007ff" keyPath="$USER_HOME$/.ssh/id_rsa" port="22" nameFormat="DESCRIPTIVE" username="kaipak" />
+    </configs>
+  </component>
+</project>
