@@ -1,4 +1,4 @@
-# clover_datasets
+# CLOVER Datasets
 ## Basic Documentation
 ### Create a MSLV2 Dataset
 Commands all run in folder containing this repo.
