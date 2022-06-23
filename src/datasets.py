@@ -1,9 +1,13 @@
+import os
+import sys
 import shutil
 from pathlib import Path
 
 import pandas as pd
 from torchvision.datasets import ImageFolder
 from torchvision import datasets, transforms
+
+from src.img_tools import *
 
 
 class CLOVERDatasets(object):
@@ -53,8 +57,31 @@ class CLOVERDatasets(object):
 
         print(f"MSLv2 training dataset summary:\n {value_counts}")
 
-    def create_lroc_dataset(self, num_images: int = 1000):
-        """Create unlabeled training dataset from LROC images"""
+    def create_lroc_dataset(self, lroc_phase: int = 1, num_images: int = 1000, lroc_dtype: str = "edr"):
+        """Create unlabeled training dataset from LROC images
+
+        Directory structure of LROC mount basically follows convention:
+        lroc_dtype (edr/cdr/rdr) / lroc_phase (1-28) / YYYDOY / [images...]
+
+        """
+        lroc_phase_str = str(lroc_phase)
+        if lroc_phase < 10:
+            lroc_phase_str = "0" + lroc_phase_str
+
+        img_dir = self.data_path / lroc_dtype / f'lrolrc_00{lroc_phase_str}' / 'extras/browse'
+        img_subdirs = os.scandir(img_dir)
+        print(f"Generating LROC dataset from {self.data_path}/{lroc_dtype}/lrolrc_00{lroc_phase_str}")
+        print(f"\nProcessing all files in {img_dir} and outputting to {self.out_path} while maintaining dir structure")
+
+        for subdir in img_subdirs:
+            print(subdir)
+            if subdir.is_dir():
+                img_filelist = [os.path.join(subdir.path, f) for f in os.listdir(subdir.path)
+                                if os.path.isfile(os.path.join(subdir.path, f))]
+                print(img_filelist)
+            print("Done")
+
+
 
 
 
