@@ -51,8 +51,13 @@ class CLOVERDatasets(object):
             print("Generating PyTorch dataset from images.")
             self.dataset = ImageFolder(self.out_path, transform=pt_dataset_xforms)
 
-
         print(f"MSLv2 training dataset summary:\n {value_counts}")
+
+    def create_lroc_dataset(self, num_images: int = 1000):
+        """Create unlabeled training dataset from LROC images"""
+
+
+
 
     def describe(self):
         """Provide useful information about datasets"""
