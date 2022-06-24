@@ -7,8 +7,7 @@ import pandas as pd
 from torchvision.datasets import ImageFolder
 from torchvision import datasets, transforms
 
-from src.img_tools import *
-
+import src.img_tools as img_tools
 
 class CLOVERDatasets(object):
 
@@ -23,6 +22,8 @@ class CLOVERDatasets(object):
         self.data_path = Path(data_path)
         self.out_path = Path(out_path)
         self.msl_class_map = msl_class_map
+
+        self.lroc_imgs = None
         self.df_msl_train = None
         self.dataset = None
 
@@ -35,7 +36,6 @@ class CLOVERDatasets(object):
         create_pt_dataset: generate a PyTorch dataset via ImageFolder with pt_dataset_xforms applied.
 
         """
-
         train_path = self.out_path / msl_dataset_dir / 'train'
         self.df_msl_train = pd.read_csv(train_file, sep='\s', names=['img', 'label'])
 
@@ -70,16 +70,26 @@ class CLOVERDatasets(object):
 
         img_dir = self.data_path / lroc_dtype / f'lrolrc_00{lroc_phase_str}' / 'extras/browse'
         img_subdirs = os.scandir(img_dir)
+        img_output_path = self.out_path / lroc_dtype / f'lrolrc_00{lroc_phase_str}'
+        img_output_path.mkdir(parents=True, exist_ok=True)
+
         print(f"Generating LROC dataset from {self.data_path}/{lroc_dtype}/lrolrc_00{lroc_phase_str}")
         print(f"\nProcessing all files in {img_dir} and outputting to {self.out_path} while maintaining dir structure")
 
         for subdir in img_subdirs:
-            print(subdir)
+            img_files = None
+            # Output path is the img_output_path with subdir of the YYYDOY.
+            subdir_output_path = img_output_path / Path(subdir.path).stem
             if subdir.is_dir():
-                img_filelist = [os.path.join(subdir.path, f) for f in os.listdir(subdir.path)
-                                if os.path.isfile(os.path.join(subdir.path, f))]
-                print(img_filelist)
-            print("Done")
+                Path(subdir_output_path).mkdir(exist_ok=True)
+                img_files = [f for f in os.listdir(subdir.path)
+                             if os.path.isfile(os.path.join(subdir.path, f))]
+            else:
+                continue
+
+            img_tools.process_imgs(subdir.path, subdir_output_path, img_files)
+            print(f"foo! here is subdir {subdir.path}.")
+
 
 
 
