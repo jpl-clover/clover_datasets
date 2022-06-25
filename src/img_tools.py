@@ -6,6 +6,7 @@ import sys
 import numpy as np
 import cv2
 
+
 def process_imgs(img_parent_dir: Path, img_output_dir: Path, img_files):
     """Process list of images"""
     suspect_dir = img_output_dir / 'suspect'
@@ -49,9 +50,11 @@ def process_imgs(img_parent_dir: Path, img_output_dir: Path, img_files):
         print(f"StdDev: {stddev}, < 5 pixel intensity ratio: {low_freq_prop}")
     print("~~~~~~~~~~~~~~~~~~~~~~~~~~")
 
+def check_low_proportion_low_intensity(img, max_intensity: = 25, proportion_threshold: float = .02):
+    """Computes proportion of pixels that are below threshold value (0-255)
 
-
-def get_img_stddev(img):
-    """Get standard deviation of image intensity"""
-    pass
-
+    Low intensity values correspond to dark areas which typically denote shadows, details, and other
+    features common in most natural photos. Abnormal images consisting of a smooth gradient, uniform snow, or
+    other unnatural images will tend to have a very low proportion of low intensity pixels.
+    """
+    low_freq_prop = len(img[img < max_intensity]) / len(img.ravel())

@@ -90,12 +90,6 @@ class CLOVERDatasets(object):
             img_tools.process_imgs(subdir.path, subdir_output_path, img_files)
             print(f"foo! here is subdir {subdir.path}.")
 
-
-
-
-
-
-
     def describe(self):
         """Provide useful information about datasets"""
         pass
