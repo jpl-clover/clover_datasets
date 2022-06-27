@@ -1,6 +1,8 @@
 import os
 import sys
+import multiprocessing as mp
 import shutil
+from itertools import repeat
 from pathlib import Path
 
 import pandas as pd
@@ -8,6 +10,7 @@ from torchvision.datasets import ImageFolder
 from torchvision import datasets, transforms
 
 import src.img_tools as img_tools
+
 
 class CLOVERDatasets(object):
 
@@ -64,6 +67,8 @@ class CLOVERDatasets(object):
         lroc_dtype (edr/cdr/rdr) / lroc_phase (1-28) / YYYDOY / [images...]
 
         """
+        procs = mp.cpu_count()
+
         lroc_phase_str = str(lroc_phase)
         if lroc_phase < 10:
             lroc_phase_str = "0" + lroc_phase_str
@@ -76,19 +81,34 @@ class CLOVERDatasets(object):
         print(f"Generating LROC dataset from {self.data_path}/{lroc_dtype}/lrolrc_00{lroc_phase_str}")
         print(f"\nProcessing all files in {img_dir} and outputting to {self.out_path} while maintaining dir structure")
 
-        for subdir in img_subdirs:
-            img_files = None
-            # Output path is the img_output_path with subdir of the YYYDOY.
-            subdir_output_path = img_output_path / Path(subdir.path).stem
-            if subdir.is_dir():
-                Path(subdir_output_path).mkdir(exist_ok=True)
-                img_files = [f for f in os.listdir(subdir.path)
-                             if os.path.isfile(os.path.join(subdir.path, f))]
-            else:
-                continue
+        try:
+            pool = mp.Pool(processes=procs)
 
-            img_tools.process_imgs(subdir.path, subdir_output_path, img_files)
-            print(f"foo! here is subdir {subdir.path}.")
+            for subdir in img_subdirs:
+                if subdir.is_dir():
+                   subdir_output_path = Path(img_output_path / Path(subdir.path).stem)
+                   subdir_output_path.mkdir(exist_ok=True)
+                   suspect_dir = subdir_output_path / 'suspect'
+                   suspect_dir.mkdir(exist_ok=True)
+                   img_files = [os.path.join(subdir.path, f) for f in os.listdir(subdir.path)
+                                if os.path.isfile(os.path.join(subdir.path, f))]
+                else:
+                    continue
+                # Multiprocess image processing
+                pool.starmap(img_tools.proc_img, zip(img_files, repeat(subdir_output_path), repeat(suspect_dir)))
+        finally:
+            pool.close()
+            pool.join()
+
+        print("Done.")
+
+
+                #img_tools.process_imgs(img_files, subdir_output_path)
+
+
+
+
+                #print(f"foo! here is subdir {subdir.path}.")
 
     def describe(self):
         """Provide useful information about datasets"""

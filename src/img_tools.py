@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+import multiprocessing as mp
 import shutil
 import sys
 
@@ -7,50 +8,110 @@ import numpy as np
 import cv2
 
 
-def process_imgs(img_parent_dir: Path, img_output_dir: Path, img_files):
+def process_imgs(img_files, img_output_dir: Path):
     """Process list of images"""
     suspect_dir = img_output_dir / 'suspect'
     suspect_dir.mkdir(exist_ok=True)
 
     for f in img_files:
-        img_filepath = os.path.join(img_parent_dir, f)
+        f = Path(f)
+        print("--------------------")
+        print(f)
 
         try:
-            img = cv2.imread(img_filepath, )
+            img = cv2.imread(str(f), )
         except IOError:
-            print(f"This looks like a bad file potentially, moving to suspect dir")
-            shutil.copy(os.path.join(img_parent_dir, f), os.path.join(suspect_dir, f))
+            print(f"This looks like a bad or corrupt file, moving to suspect dir")
+            shutil.copy(f, os.path.join(suspect_dir, f.name))
+            continue
+        if (os.stat(f).st_size == 0):
+            print(f"This is a zero byte file, moving to suspect dir.")
+            shutil.copy(f, os.path.join(suspect_dir, f.name))
+            continue
+        if img is None:
+            print(f"This does not appear to be an image file. Moving to suspect dir.")
+            shutil.copy(f, os.path.join(suspect_dir, f.name))
             continue
 
         try:
             stddev = np.round(np.std(img), 5)
-        except TypeError:
-            print(f"This looks like a bad file potentially, moving to suspect dir")
-            shutil.copy(os.path.join(img_parent_dir, f), os.path.join(suspect_dir, f))
+        except IOError:
+            print(f"Something is wrong with this image file, moving to suspect dir")
+            shutil.copy(f, os.path.join(suspect_dir, f.name))
+            continue
+        except Exception as e:
+            print(e)
+            shutil.copy(f, os.path.join(suspect_dir, f.name))
             continue
 
         low_freq_prop = len(img[img < 25]) / len(img.ravel())
         lap_var = np.var(cv2.Laplacian(img, cv2.CV_64F))
 
-        if low_freq_prop < .02:
-            print(f"This looks like a bad image, moving to suspect dir")
-            print(f"StdDev: {stddev}, < 5 pixel intensity ratio: {low_freq_prop}")
-            shutil.copy(os.path.join(img_parent_dir, f), os.path.join(suspect_dir, f))
-            continue
+        print(f"StdDev: {stddev}, low pixel intensity ratio: {low_freq_prop}, laplace variance: {lap_var}. ", end="")
 
-        # Lines, repetitive patterns, snow
-        if lap_var > 4000:
-            print(f"This looks like repetitive pattern and may be bad image, moving to suspect dir")
-            print(f"StdDev: {stddev}, < 5 pixel intensity ratio: {low_freq_prop}")
-            shutil.copy(os.path.join(img_parent_dir, f), os.path.join(suspect_dir, f))
+        if (low_freq_prop < .02) or (lap_var > 4000):
+            print(f"Some properties of this image look suspect(noise, etc.), moving to suspect dir")
+            shutil.copy(f, os.path.join(suspect_dir, f.name))
             continue
-
-        print(f"Good file!")
-        shutil.copy(os.path.join(img_parent_dir, f), os.path.join(img_output_dir, f))
-        print(f"StdDev: {stddev}, < 5 pixel intensity ratio: {low_freq_prop}")
+        else:
+            print(f"Good file!")
+        shutil.copy(f, os.path.join(img_output_dir, f.name))
     print("~~~~~~~~~~~~~~~~~~~~~~~~~~")
 
-def check_low_proportion_low_intensity(img, max_intensity: = 25, proportion_threshold: float = .02):
+
+def proc_img(img_file, img_output_dir, suspect_dir):
+    f = Path(img_file)
+    error = False
+    exception = None
+
+    print(f"--------------------\n{f}")
+
+    try:
+        img = cv2.imread(str(f), )
+    except Exception as e:
+        print(f"Read image error occured: {e}")
+        shutil.copy(f, os.path.join(suspect_dir, f.name))
+        error = True
+        exception = e
+    if (os.stat(f).st_size == 0):
+        print(f"This is a zero byte file, moving to suspect dir.")
+        shutil.copy(f, os.path.join(suspect_dir, f.name))
+        error = True
+        exception = "Zero byte size file."
+    if img is None:
+        print(f"This does not appear to be an image file. Moving to suspect dir.")
+        shutil.copy(f, os.path.join(suspect_dir, f.name))
+        error = True
+        exception = "Image produces empty object."
+    try:
+        stddev = np.round(np.std(img), 5)
+        low_freq_prop = len(img[img < 25]) / len(img.ravel())
+        lap_var = np.var(cv2.Laplacian(img, cv2.CV_64F))
+        print(f"StdDev: {stddev}, low pixel intensity ratio: {low_freq_prop}, laplace variance: {lap_var}. ", end="")
+    except Exception as e:
+        print(f"Something is wrong with this image file: {e}")
+        shutil.copy(f, os.path.join(suspect_dir, f.name))
+        error = True
+        exception = "Image is corrupt or otherwise unusable."
+    if error:
+        return 2
+
+    # Tests on content of image. These aren't errors per se, but images that are not acceptable for other reasons
+    if (low_freq_prop < .02) or (lap_var > 4000):
+        print(f"Some properties of this image look suspect (noise, repetitive patterns, etc.), moving to suspect dir")
+        shutil.copy(f, os.path.join(suspect_dir, f.name))
+        return 1
+    else:
+        print(f"Good file!")
+        shutil.copy(f, os.path.join(img_output_dir, f.name))
+        return 0
+    print("~~~~~~~~~~~~~~~~~~~~~~~~~~")
+
+def mp_imgs(img_files, img_output_dir: Path):
+    pass
+
+
+def check_low_proportion_low_intensity(img, max_intensity: int = 25, threshold: float = .02):
     """Computes proportion of pixels that are below threshold value (0-255)
 
     Low intensity values correspond to dark areas which typically denote shadows, details, and other
