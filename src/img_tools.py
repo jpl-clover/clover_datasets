@@ -8,79 +8,27 @@ import numpy as np
 import cv2
 
 
-def process_imgs(img_files, img_output_dir: Path):
-    """Process list of images"""
-    suspect_dir = img_output_dir / 'suspect'
-    suspect_dir.mkdir(exist_ok=True)
-
-    for f in img_files:
-        f = Path(f)
-        print("--------------------")
-        print(f)
-
-        try:
-            img = cv2.imread(str(f), )
-        except IOError:
-            print(f"This looks like a bad or corrupt file, moving to suspect dir")
-            shutil.copy(f, os.path.join(suspect_dir, f.name))
-            continue
-        if (os.stat(f).st_size == 0):
-            print(f"This is a zero byte file, moving to suspect dir.")
-            shutil.copy(f, os.path.join(suspect_dir, f.name))
-            continue
-        if img is None:
-            print(f"This does not appear to be an image file. Moving to suspect dir.")
-            shutil.copy(f, os.path.join(suspect_dir, f.name))
-            continue
-
-        try:
-            stddev = np.round(np.std(img), 5)
-        except IOError:
-            print(f"Something is wrong with this image file, moving to suspect dir")
-            shutil.copy(f, os.path.join(suspect_dir, f.name))
-            continue
-        except Exception as e:
-            print(e)
-            shutil.copy(f, os.path.join(suspect_dir, f.name))
-            continue
-
-        low_freq_prop = len(img[img < 25]) / len(img.ravel())
-        lap_var = np.var(cv2.Laplacian(img, cv2.CV_64F))
-
-        print(f"StdDev: {stddev}, low pixel intensity ratio: {low_freq_prop}, laplace variance: {lap_var}. ", end="")
-
-        if (low_freq_prop < .02) or (lap_var > 4000):
-            print(f"Some properties of this image look suspect(noise, etc.), moving to suspect dir")
-            shutil.copy(f, os.path.join(suspect_dir, f.name))
-            continue
-        else:
-            print(f"Good file!")
-        shutil.copy(f, os.path.join(img_output_dir, f.name))
-    print("~~~~~~~~~~~~~~~~~~~~~~~~~~")
-
-
-def proc_img(img_file, img_output_dir, suspect_dir):
+def proc_img(img_file, img_output_dir, suspect_dir, img_size: int = 256):
+    """Process single image through pipeline"""
     f = Path(img_file)
     error = False
     exception = None
 
     print(f"--------------------\n{f}")
 
+    # Tests on in format is correct
     try:
         img = cv2.imread(str(f), )
     except Exception as e:
         print(f"Read image error occured: {e}")
-        shutil.copy(f, os.path.join(suspect_dir, f.name))
         error = True
         exception = e
     if (os.stat(f).st_size == 0):
         print(f"This is a zero byte file, moving to suspect dir.")
-        shutil.copy(f, os.path.join(suspect_dir, f.name))
         error = True
         exception = "Zero byte size file."
     if img is None:
         print(f"This does not appear to be an image file. Moving to suspect dir.")
-        shutil.copy(f, os.path.join(suspect_dir, f.name))
         error = True
         exception = "Image produces empty object."
     try:
@@ -90,10 +38,10 @@ def proc_img(img_file, img_output_dir, suspect_dir):
         print(f"StdDev: {stddev}, low pixel intensity ratio: {low_freq_prop}, laplace variance: {lap_var}. ", end="")
     except Exception as e:
         print(f"Something is wrong with this image file: {e}")
-        shutil.copy(f, os.path.join(suspect_dir, f.name))
         error = True
         exception = "Image is corrupt or otherwise unusable."
     if error:
+        shutil.copy(f, os.path.join(suspect_dir, f.name))
         return 2
 
     # Tests on content of image. These aren't errors per se, but images that are not acceptable for other reasons
@@ -101,14 +49,88 @@ def proc_img(img_file, img_output_dir, suspect_dir):
         print(f"Some properties of this image look suspect (noise, repetitive patterns, etc.), moving to suspect dir")
         shutil.copy(f, os.path.join(suspect_dir, f.name))
         return 1
-    else:
-        print(f"Good file!")
-        shutil.copy(f, os.path.join(img_output_dir, f.name))
-        return 0
+
+    # If previous error detectors pass, we can now process
+    print(f"Good file! Now image processing and exporting to file")
+    img = scale2shortest(img, img_size=img_size)
+    imgs = photobooth_cut(img)
+    print(f"Hmm shape: {len(imgs)}, img shape {img.shape}")
+
+    for i, imglet in enumerate(imgs):
+        imglet_filename = f.name.split(sep='.')[0] + f'_{i}' + '.jpg'
+        stddev = np.std(imglet)
+        if stddev < 10:
+            cv2.imwrite(os.path.join(suspect_dir, imglet_filename), imglet)
+        else:
+            cv2.imwrite(os.path.join(img_output_dir, imglet_filename), imglet)
+
+    return 0
     print("~~~~~~~~~~~~~~~~~~~~~~~~~~")
 
-def mp_imgs(img_files, img_output_dir: Path):
-    pass
+
+def normalize(img):
+    pixels = img.astype('float32')
+    pixels /= 255.0
+    return pixels
+
+
+def scale2shortest(img, img_size: int = 256):
+    """Base on scale image to ratio of shortest side of image. Preserves aspect ratio """
+    height, width, _ = img.shape
+    scale = img_size / height
+
+    if height > width:
+        print("true")
+        scale = img_size / width
+        print(scale)
+
+    height = int(img.shape[0] * scale)
+    width = int(img.shape[1] * scale)
+
+    print(height, width)
+
+    img_resized = cv2.resize(img, (width, height), interpolation = cv2.INTER_AREA)
+
+    return img_resized
+
+
+def photobooth_cut(img):
+    """Cut an image short length size down long-side of image... like a photobooth
+
+    Args:
+
+    Returns:
+        A list of images
+    """
+    length, width, _ = img.shape
+    imgs = []
+
+    if length == width:
+        imgs.append(img)
+        return(imgs)
+
+    vertical = True
+    if length < width:
+        vertical = False
+
+    if vertical:
+        patches = int(length / width)
+        for i in range(patches):
+            img_s = img[(i * width):((i + 1) * width), :, :]
+            imgs.append(img_s)
+    else:
+        patches = int(width / length)
+        for j in range(patches):
+            img_s = img[:, (j * length):((j + 1) * length), :]
+            imgs.append(img_s)
+
+    return imgs
+
+
+
+
+
+
 
 
 def check_low_proportion_low_intensity(img, max_intensity: int = 25, threshold: float = .02):

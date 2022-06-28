@@ -60,7 +60,8 @@ class CLOVERDatasets(object):
 
         print(f"MSLv2 training dataset summary:\n {value_counts}")
 
-    def create_lroc_dataset(self, lroc_phase: int = 1, num_images: int = 1000, lroc_dtype: str = "edr"):
+    def create_lroc_dataset(self, num_images: int = 1000, img_size: int = 256,
+                            lroc_phase: int = 1, lroc_dtype: str = "edr"):
         """Create unlabeled training dataset from LROC images
 
         Directory structure of LROC mount basically follows convention:
@@ -95,20 +96,13 @@ class CLOVERDatasets(object):
                 else:
                     continue
                 # Multiprocess image processing
-                pool.starmap(img_tools.proc_img, zip(img_files, repeat(subdir_output_path), repeat(suspect_dir)))
+                pool.starmap(img_tools.proc_img,
+                             zip(img_files, repeat(subdir_output_path), repeat(suspect_dir), repeat(img_size)))
         finally:
             pool.close()
             pool.join()
 
         print("Done.")
-
-
-                #img_tools.process_imgs(img_files, subdir_output_path)
-
-
-
-
-                #print(f"foo! here is subdir {subdir.path}.")
 
     def describe(self):
         """Provide useful information about datasets"""
