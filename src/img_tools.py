@@ -1,9 +1,7 @@
 import os
 from pathlib import Path
-import multiprocessing as mp
 import shutil
 import sys
-
 import numpy as np
 import cv2
 
@@ -14,9 +12,7 @@ def proc_img(img_file, img_output_dir, suspect_dir, img_size: int = 256):
     error = False
     exception = None
 
-    print(f"--------------------\n{f}")
-
-    # Tests on in format is correct
+    # Tests if data format of image is correct
     try:
         img = cv2.imread(str(f), )
     except Exception as e:
@@ -54,7 +50,6 @@ def proc_img(img_file, img_output_dir, suspect_dir, img_size: int = 256):
     print(f"Good file! Now image processing and exporting to file")
     img = scale2shortest(img, img_size=img_size)
     imgs = photobooth_cut(img)
-    print(f"Hmm shape: {len(imgs)}, img shape {img.shape}")
 
     for i, imglet in enumerate(imgs):
         imglet_filename = f.name.split(sep='.')[0] + f'_{i}' + '.jpg'
@@ -65,7 +60,6 @@ def proc_img(img_file, img_output_dir, suspect_dir, img_size: int = 256):
             cv2.imwrite(os.path.join(img_output_dir, imglet_filename), imglet)
 
     return 0
-    print("~~~~~~~~~~~~~~~~~~~~~~~~~~")
 
 
 def normalize(img):
@@ -80,15 +74,10 @@ def scale2shortest(img, img_size: int = 256):
     scale = img_size / height
 
     if height > width:
-        print("true")
         scale = img_size / width
-        print(scale)
 
     height = int(img.shape[0] * scale)
     width = int(img.shape[1] * scale)
-
-    print(height, width)
-
     img_resized = cv2.resize(img, (width, height), interpolation = cv2.INTER_AREA)
 
     return img_resized
@@ -125,12 +114,6 @@ def photobooth_cut(img):
             imgs.append(img_s)
 
     return imgs
-
-
-
-
-
-
 
 
 def check_low_proportion_low_intensity(img, max_intensity: int = 25, threshold: float = .02):
