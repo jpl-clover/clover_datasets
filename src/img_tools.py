@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 import shutil
+
 import numpy as np
 import cv2
 
@@ -33,7 +34,7 @@ def proc_img(img_file, img_output_dir, suspect_dir, img_size: int = 256):
     if error:
         shutil.copy(f, os.path.join(suspect_dir, f.name))
         print(f"An error occurred while trying to read the file: {exception}")
-        return
+        return img_file, None, None, None, exception, True
 
     # Tests on content of image. These aren't errors per se, but images that are not acceptable for other reasons
     # LROC images tend to appear corrupt or contain unnatural repetitive patterns
@@ -41,11 +42,15 @@ def proc_img(img_file, img_output_dir, suspect_dir, img_size: int = 256):
         print("The dimensions of this image seem wrong. Moving to suspect dir.")
         exception = "Image distorted"
         print(f"Image {f} has dimensions suggesting distortions. Please investigate.")
-        return
+        error = True
+        exception = f"Distorted dimensions."
     if (low_freq_prop < .02) or (lap_var > 4000):
         print(f"Some properties of this image look suspect (noise, repetitive patterns, etc.), moving to suspect dir")
+        error = True
+        exception = f"Noise."
+    if error:
         shutil.copy(f, os.path.join(suspect_dir, f.name))
-        return
+        return img_file, stddev, low_freq_prop, lap_var, exception, True
 
     # If previous error detectors pass, we can now process
     print(f"Good file! Now image processing and exporting to file")
@@ -60,7 +65,7 @@ def proc_img(img_file, img_output_dir, suspect_dir, img_size: int = 256):
         else:
             cv2.imwrite(os.path.join(img_output_dir, imglet_filename), imglet)
 
-    return 0
+    return img_file, stddev, low_freq_prop, lap_var, None, False
 
 
 def check_dim_ratio(img, threshold: float = 30):

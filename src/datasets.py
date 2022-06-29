@@ -4,6 +4,7 @@ import shutil
 from itertools import repeat
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 from torchvision.datasets import ImageFolder
 from torchvision import datasets, transforms
@@ -27,6 +28,8 @@ class CLOVERDatasets(object):
         self.lroc_imgs = None
         self.df_msl_train = None
         self.dataset = None
+        self.df_dataset_report = pd.DataFrame(columns=['img', 'stddev', 'low_freq_prop',
+                                                       'lap_var', 'exception', 'suspect'])
 
     def create_mslv2_dataset(self, train_file: str = 'train-set-v2.1.txt', msl_dataset_dir: str = 'mslv2_dataset',
                              create_pt_dataset: bool = False, pt_dataset_xforms: transforms = None):
@@ -94,12 +97,17 @@ class CLOVERDatasets(object):
                 else:
                     continue
                 # Multiprocess image processing
-                pool.starmap(img_tools.proc_img,
+                res = pool.starmap(img_tools.proc_img,
                              zip(img_files, repeat(subdir_output_path), repeat(suspect_path), repeat(img_size)))
+                df_report = pd.DataFrame(columns=['img', 'stddev', 'low_freq_prop',
+                                                       'lap_var', 'exception', 'suspect'],
+                                         data=res)
+                self.df_dataset_report = pd.concat([self.df_dataset_report, df_report])
         finally:
             pool.close()
             pool.join()
 
+        self.df_dataset_report.to_csv('foo.csv')
         print("Done.")
 
     def describe(self):
