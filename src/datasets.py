@@ -1,10 +1,10 @@
 import os
-import sys
 import multiprocessing as mp
 import shutil
 from itertools import repeat
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 from torchvision.datasets import ImageFolder
 from torchvision import datasets, transforms
@@ -25,10 +25,11 @@ class CLOVERDatasets(object):
         self.data_path = Path(data_path)
         self.out_path = Path(out_path)
         self.msl_class_map = msl_class_map
-
         self.lroc_imgs = None
         self.df_msl_train = None
         self.dataset = None
+        self.df_dataset_report = pd.DataFrame(columns=['img', 'stddev', 'low_freq_prop',
+                                                       'lap_var', 'exception', 'suspect'])
 
     def create_mslv2_dataset(self, train_file: str = 'train-set-v2.1.txt', msl_dataset_dir: str = 'mslv2_dataset',
                              create_pt_dataset: bool = False, pt_dataset_xforms: transforms = None):
@@ -37,7 +38,6 @@ class CLOVERDatasets(object):
         train_file: text file that has one column of image names, and another column of classes
         msl_dataset_dir: subdirectory of out_path defined in object creation, so out_path/msl_dataset_dir
         create_pt_dataset: generate a PyTorch dataset via ImageFolder with pt_dataset_xforms applied.
-
         """
         train_path = self.out_path / msl_dataset_dir / 'train'
         self.df_msl_train = pd.read_csv(train_file, sep='\s', names=['img', 'label'])
@@ -78,9 +78,12 @@ class CLOVERDatasets(object):
         img_subdirs = os.scandir(img_dir)
         img_output_path = self.out_path / lroc_dtype / f'lrolrc_00{lroc_phase_str}'
         img_output_path.mkdir(parents=True, exist_ok=True)
+        suspect_path = img_output_path / 'suspect'
+        suspect_path.mkdir(exist_ok=True)
 
         print(f"Generating LROC dataset from {self.data_path}/{lroc_dtype}/lrolrc_00{lroc_phase_str}")
         print(f"\nProcessing all files in {img_dir} and outputting to {self.out_path} while maintaining dir structure")
+
 
         try:
             pool = mp.Pool(processes=procs)
@@ -89,19 +92,22 @@ class CLOVERDatasets(object):
                 if subdir.is_dir():
                    subdir_output_path = Path(img_output_path / Path(subdir.path).stem)
                    subdir_output_path.mkdir(exist_ok=True)
-                   suspect_dir = subdir_output_path / 'suspect'
-                   suspect_dir.mkdir(exist_ok=True)
                    img_files = [os.path.join(subdir.path, f) for f in os.listdir(subdir.path)
                                 if os.path.isfile(os.path.join(subdir.path, f))]
                 else:
                     continue
                 # Multiprocess image processing
-                pool.starmap(img_tools.proc_img,
-                             zip(img_files, repeat(subdir_output_path), repeat(suspect_dir), repeat(img_size)))
+                res = pool.starmap(img_tools.proc_img,
+                             zip(img_files, repeat(subdir_output_path), repeat(suspect_path), repeat(img_size)))
+                df_report = pd.DataFrame(columns=['img', 'stddev', 'low_freq_prop',
+                                                       'lap_var', 'exception', 'suspect'],
+                                         data=res)
+                self.df_dataset_report = pd.concat([self.df_dataset_report, df_report])
         finally:
             pool.close()
             pool.join()
 
+        self.df_dataset_report.to_csv('foo.csv')
         print("Done.")
 
     def describe(self):
