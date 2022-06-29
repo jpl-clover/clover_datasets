@@ -1,5 +1,4 @@
 import os
-import sys
 import multiprocessing as mp
 import shutil
 from itertools import repeat
@@ -25,7 +24,6 @@ class CLOVERDatasets(object):
         self.data_path = Path(data_path)
         self.out_path = Path(out_path)
         self.msl_class_map = msl_class_map
-
         self.lroc_imgs = None
         self.df_msl_train = None
         self.dataset = None
@@ -37,7 +35,6 @@ class CLOVERDatasets(object):
         train_file: text file that has one column of image names, and another column of classes
         msl_dataset_dir: subdirectory of out_path defined in object creation, so out_path/msl_dataset_dir
         create_pt_dataset: generate a PyTorch dataset via ImageFolder with pt_dataset_xforms applied.
-
         """
         train_path = self.out_path / msl_dataset_dir / 'train'
         self.df_msl_train = pd.read_csv(train_file, sep='\s', names=['img', 'label'])

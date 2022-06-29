@@ -19,32 +19,34 @@ def proc_img(img_file, img_output_dir, suspect_dir, img_size: int = 256):
         print(f"Read image error occured: {e}")
         error = True
         exception = e
-    if (os.stat(f).st_size == 0):
-        print(f"This is a zero byte file, moving to suspect dir.")
+    if (os.stat(f).st_size == 0) or (img is None):
+        print(f"This is either a zero byte file or opening it produces None, moving to suspect dir.")
         error = True
-        exception = "Zero byte size file."
-    if img is None:
-        print(f"This does not appear to be an image file. Moving to suspect dir.")
-        error = True
-        exception = "Image produces empty object."
+        exception = "Zero byte size or empty image file."
     try:
         stddev = np.round(np.std(img), 5)
         low_freq_prop = len(img[img < 25]) / len(img.ravel())
         lap_var = np.var(cv2.Laplacian(img, cv2.CV_64F))
         print(f"StdDev: {stddev}, low pixel intensity ratio: {low_freq_prop}, laplace variance: {lap_var}. ", end="")
     except Exception as e:
-        print(f"Something is wrong with this image file: {e}")
+        exception = f"Image is corrupt or otherwise unusable: {e}"
         error = True
-        exception = "Image is corrupt or otherwise unusable."
     if error:
         shutil.copy(f, os.path.join(suspect_dir, f.name))
-        return 2
+        print(f"An error occurred while trying to read the file: {exception}")
+        return
 
     # Tests on content of image. These aren't errors per se, but images that are not acceptable for other reasons
+    # LROC images tend to appear corrupt or contain unnatural repetitive patterns
+    if check_dim_ratio(img, 25):
+        print("The dimensions of this image seem wrong. Moving to suspect dir.")
+        exception = "Image distorted"
+        print(f"Image {f} has dimensions suggesting distortions. Please investigate.")
+        return
     if (low_freq_prop < .02) or (lap_var > 4000):
         print(f"Some properties of this image look suspect (noise, repetitive patterns, etc.), moving to suspect dir")
         shutil.copy(f, os.path.join(suspect_dir, f.name))
-        return 1
+        return
 
     # If previous error detectors pass, we can now process
     print(f"Good file! Now image processing and exporting to file")
@@ -60,6 +62,18 @@ def proc_img(img_file, img_output_dir, suspect_dir, img_size: int = 256):
             cv2.imwrite(os.path.join(img_output_dir, imglet_filename), imglet)
 
     return 0
+
+
+def check_dim_ratio(img, threshold: float = 30):
+    height, width, _ = img.shape
+    if np.round(height / width) >= threshold:
+        return 1
+    return 0
+
+
+def verify_image(img):
+    """Open an image and run some basic tests to ensure the data is correct"""
+    pass
 
 
 def normalize(img):
