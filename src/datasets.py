@@ -75,9 +75,12 @@ class CLOVERDatasets(object):
         img_subdirs = os.scandir(img_dir)
         img_output_path = self.out_path / lroc_dtype / f'lrolrc_00{lroc_phase_str}'
         img_output_path.mkdir(parents=True, exist_ok=True)
+        suspect_path = img_output_path / 'suspect'
+        suspect_path.mkdir(exist_ok=True)
 
         print(f"Generating LROC dataset from {self.data_path}/{lroc_dtype}/lrolrc_00{lroc_phase_str}")
         print(f"\nProcessing all files in {img_dir} and outputting to {self.out_path} while maintaining dir structure")
+
 
         try:
             pool = mp.Pool(processes=procs)
@@ -86,15 +89,13 @@ class CLOVERDatasets(object):
                 if subdir.is_dir():
                    subdir_output_path = Path(img_output_path / Path(subdir.path).stem)
                    subdir_output_path.mkdir(exist_ok=True)
-                   suspect_dir = subdir_output_path / 'suspect'
-                   suspect_dir.mkdir(exist_ok=True)
                    img_files = [os.path.join(subdir.path, f) for f in os.listdir(subdir.path)
                                 if os.path.isfile(os.path.join(subdir.path, f))]
                 else:
                     continue
                 # Multiprocess image processing
                 pool.starmap(img_tools.proc_img,
-                             zip(img_files, repeat(subdir_output_path), repeat(suspect_dir), repeat(img_size)))
+                             zip(img_files, repeat(subdir_output_path), repeat(suspect_path), repeat(img_size)))
         finally:
             pool.close()
             pool.join()
