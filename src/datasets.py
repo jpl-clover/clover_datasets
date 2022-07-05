@@ -99,10 +99,9 @@ class CLOVERDatasets(object):
                 # Multiprocess image processing
                 res = pool.starmap(img_tools.proc_img,
                              zip(img_files, repeat(subdir_output_path), repeat(suspect_path), repeat(img_size)))
-                df_report = pd.DataFrame(columns=['img', 'stddev', 'low_freq_prop',
-                                                       'lap_var', 'exception', 'suspect'],
-                                         data=res)
-                self.df_dataset_report = pd.concat([self.df_dataset_report, df_report])
+                #df_report = pd.DataFrame(res, columns=['img', 'stddev', 'low_freq_prop', 'lap_var', 'exception', 'suspect'])
+                res.append(self.df_dataset_report)
+                self.df_dataset_report = pd.concat(res)
         finally:
             pool.close()
             pool.join()

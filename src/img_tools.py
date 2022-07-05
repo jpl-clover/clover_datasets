@@ -3,6 +3,7 @@ from pathlib import Path
 import shutil
 
 import numpy as np
+import pandas as pd
 import cv2
 
 
@@ -11,30 +12,29 @@ def proc_img(img_file, img_output_dir, suspect_dir, img_size: int = 256):
     f = Path(img_file)
     error = False
     exception = None
+    res = pd.DataFrame(columns=['img', 'stddev', 'low_freq_prop', 'lap_var', 'exception', 'suspect'])
 
     # Tests if data format of image is correct
     try:
         img = cv2.imread(str(f), )
     except Exception as e:
-        print(f"Read image error occured: {e}")
         error = True
         exception = e
     if (os.stat(f).st_size == 0) or (img is None):
-        print(f"This is either a zero byte file or opening it produces None, moving to suspect dir.")
         error = True
         exception = "Zero byte size or empty image file."
     try:
         stddev = np.round(np.std(img), 5)
         low_freq_prop = len(img[img < 25]) / len(img.ravel())
         lap_var = np.var(cv2.Laplacian(img, cv2.CV_64F))
-        print(f"StdDev: {stddev}, low pixel intensity ratio: {low_freq_prop}, laplace variance: {lap_var}. ", end="")
     except Exception as e:
         exception = f"Image is corrupt or otherwise unusable: {e}"
         error = True
     if error:
         shutil.copy(f, os.path.join(suspect_dir, f.name))
         print(f"An error occurred while trying to read the file: {exception}")
-        return img_file, None, None, None, exception, True
+        res.loc[len(res)] = [img_file, None, None, None, exception, error]
+        return res
 
     # Tests on content of image. These aren't errors per se, but images that are not acceptable for other reasons
     # LROC images tend to appear corrupt or contain unnatural repetitive patterns
@@ -50,7 +50,9 @@ def proc_img(img_file, img_output_dir, suspect_dir, img_size: int = 256):
         exception = f"Noise."
     if error:
         shutil.copy(f, os.path.join(suspect_dir, f.name))
-        return img_file, stddev, low_freq_prop, lap_var, exception, True
+        print(f"There is image quality issues with this file: {exception}.")
+        res.loc[len(res)] = [img_file, stddev, low_freq_prop, lap_var, exception, error]
+        return res
 
     # If previous error detectors pass, we can now process
     print(f"Good file! Now image processing and exporting to file")
@@ -60,12 +62,18 @@ def proc_img(img_file, img_output_dir, suspect_dir, img_size: int = 256):
     for i, imglet in enumerate(imgs):
         imglet_filename = f.name.split(sep='.')[0] + f'_{i}' + '.jpg'
         stddev = np.std(imglet)
+        low_freq_prop = len(imglet[imglet < 25]) / len(imglet.ravel())
+        lap_var = np.var(cv2.Laplacian(imglet, cv2.CV_64F))
+        # Now we need to rerun some checks in case a patch exhibits bad image characteristics
         if stddev < 10:
             cv2.imwrite(os.path.join(suspect_dir, imglet_filename), imglet)
+            exception = "Image exhibiting stddev < 10."
+            error = True
         else:
             cv2.imwrite(os.path.join(img_output_dir, imglet_filename), imglet)
+        res.loc[len(res)] = [imglet_filename, stddev, low_freq_prop, lap_var, exception, error]
 
-    return img_file, stddev, low_freq_prop, lap_var, None, False
+    return res
 
 
 def check_dim_ratio(img, threshold: float = 30):
