@@ -3,11 +3,12 @@ from pathlib import Path
 import shutil
 
 import numpy as np
+import random
 import pandas as pd
 import cv2
 
 
-def proc_img(img_file, img_output_dir, suspect_dir, img_size: int = 256):
+def proc_img(img_file, img_output_dir, suspect_dir, patches, img_size: int = 256):
     """Process single image through pipeline"""
     f = Path(img_file)
     error = False
@@ -58,6 +59,8 @@ def proc_img(img_file, img_output_dir, suspect_dir, img_size: int = 256):
     print(f"Good file! Now image processing and exporting to file")
     img = scale2shortest(img, img_size=img_size)
     imgs = photobooth_cut(img)
+    if patches < len(imgs):
+        imgs = random.sample(imgs, patches)
 
     for i, imglet in enumerate(imgs):
         imglet_filename = f.name.split(sep='.')[0] + f'_{i}' + '.jpg'
