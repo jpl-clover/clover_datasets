@@ -3,11 +3,12 @@ from pathlib import Path
 import shutil
 
 import numpy as np
+import random
 import pandas as pd
 import cv2
 
 
-def proc_img(img_file, img_output_dir, suspect_dir, img_size: int = 256):
+def proc_img(img_file, img_output_dir, suspect_dir, patches, img_size: int = 256):
     """Process single image through pipeline"""
     f = Path(img_file)
     error = False
@@ -33,7 +34,7 @@ def proc_img(img_file, img_output_dir, suspect_dir, img_size: int = 256):
     if error:
         shutil.copy(f, os.path.join(suspect_dir, f.name))
         print(f"An error occurred while trying to read the file: {exception}")
-        res.loc[len(res)] = [img_file, None, None, None, exception, error]
+        res.loc[len(res)] = [suspect_dir / f.name, None, None, None, exception, error]
         return res
 
     # Tests on content of image. These aren't errors per se, but images that are not acceptable for other reasons
@@ -51,16 +52,19 @@ def proc_img(img_file, img_output_dir, suspect_dir, img_size: int = 256):
     if error:
         shutil.copy(f, os.path.join(suspect_dir, f.name))
         print(f"There is image quality issues with this file: {exception}.")
-        res.loc[len(res)] = [img_file, stddev, low_freq_prop, lap_var, exception, error]
+        res.loc[len(res)] = [suspect_dir / f.name, stddev, low_freq_prop, lap_var, exception, error]
         return res
 
     # If previous error detectors pass, we can now process
     print(f"Good file! Now image processing and exporting to file")
     img = scale2shortest(img, img_size=img_size)
     imgs = photobooth_cut(img)
+    if patches < len(imgs):
+        imgs = random.sample(imgs, patches)
 
     for i, imglet in enumerate(imgs):
         imglet_filename = f.name.split(sep='.')[0] + f'_{i}' + '.jpg'
+        imglet_path = img_output_dir / imglet_filename
         stddev = np.std(imglet)
         low_freq_prop = len(imglet[imglet < 25]) / len(imglet.ravel())
         lap_var = np.var(cv2.Laplacian(imglet, cv2.CV_64F))
@@ -71,7 +75,7 @@ def proc_img(img_file, img_output_dir, suspect_dir, img_size: int = 256):
             error = True
         else:
             cv2.imwrite(os.path.join(img_output_dir, imglet_filename), imglet)
-        res.loc[len(res)] = [imglet_filename, stddev, low_freq_prop, lap_var, exception, error]
+        res.loc[len(res)] = [imglet_path, stddev, low_freq_prop, lap_var, exception, error]
 
     return res
 

@@ -15,6 +15,8 @@ def get_args_parser():
                         help="Mission phase denoted by value 1-28.")
     parser.add_argument('--lroc_dtype', type=str, default='edr',
                         help="LROC data type. Default of EDR is acceptable for most cases.")
+    parser.add_argument('--lroc_num_patches', type=int,
+                        help="Number of patches to sample from LROC image patches.")
 
     parser.add_argument('--num_images', type=int, help="Number of images in dataset.")
     parser.add_argument('--data_source', type=str, required=True,
@@ -38,4 +40,5 @@ if __name__ == '__main__':
     if args.dataset_lroc:
         clover_datasets.create_lroc_dataset(lroc_phase=args.lroc_phase,
                                             num_images=args.num_images,
+                                            patches=args.lroc_num_patches,
                                             lroc_dtype=args.lroc_dtype)

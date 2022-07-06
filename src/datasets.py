@@ -5,6 +5,7 @@ from itertools import repeat
 from pathlib import Path
 
 import numpy as np
+import random
 import pandas as pd
 from torchvision.datasets import ImageFolder
 from torchvision import datasets, transforms
@@ -61,7 +62,7 @@ class CLOVERDatasets(object):
         print(f"MSLv2 training dataset summary:\n {value_counts}")
 
     def create_lroc_dataset(self, num_images: int = 1000, img_size: int = 256,
-                            lroc_phase: int = 1, lroc_dtype: str = "edr"):
+                            lroc_phase: int = 1, patches: int = 2, lroc_dtype: str = "edr"):
         """Create unlabeled training dataset from LROC images
 
         Directory structure of LROC mount basically follows convention:
@@ -69,20 +70,30 @@ class CLOVERDatasets(object):
 
         """
         procs = mp.cpu_count()
-
+        num_img_strips = int(num_images / patches) # Number of LROC images to cut patches from
         lroc_phase_str = str(lroc_phase)
+        imgs_used = 0 # Number of LROC strips we used to generated images
+        imgs_generated = 0
+
         if lroc_phase < 10:
             lroc_phase_str = "0" + lroc_phase_str
 
         img_dir = self.data_path / lroc_dtype / f'lrolrc_00{lroc_phase_str}' / 'extras/browse'
-        img_subdirs = os.scandir(img_dir)
+        img_subdirs = list(os.scandir(img_dir))
         img_output_path = self.out_path / lroc_dtype / f'lrolrc_00{lroc_phase_str}'
         img_output_path.mkdir(parents=True, exist_ok=True)
         suspect_path = img_output_path / 'suspect'
         suspect_path.mkdir(exist_ok=True)
 
-        print(f"Generating LROC dataset from {self.data_path}/{lroc_dtype}/lrolrc_00{lroc_phase_str}")
-        print(f"\nProcessing all files in {img_dir} and outputting to {self.out_path} while maintaining dir structure")
+        num_imgs_per_subdir = int(num_img_strips / len(img_subdirs))
+
+        print(f"Generating LROC dataset from {self.data_path}/{lroc_dtype}/lrolrc_00{lroc_phase_str}.\n"
+              f"Choosing {num_img_strips} from lrolrc_00{lroc_phase_str}, and creating {patches} from them.\n"
+              f"There are {len(img_subdirs)} sub-directories.\n"
+              f"Sampling {num_imgs_per_subdir} images per subdirectory.")
+
+        print(f"Processing all files in {img_dir}\n"
+              f"outputting to {self.out_path} while maintaining dir structure")
 
 
         try:
@@ -94,20 +105,22 @@ class CLOVERDatasets(object):
                    subdir_output_path.mkdir(exist_ok=True)
                    img_files = [os.path.join(subdir.path, f) for f in os.listdir(subdir.path)
                                 if os.path.isfile(os.path.join(subdir.path, f))]
+                   img_files = random.sample(img_files, num_imgs_per_subdir)
+                   imgs_used += len(img_files)
                 else:
                     continue
                 # Multiprocess image processing
-                res = pool.starmap(img_tools.proc_img,
-                             zip(img_files, repeat(subdir_output_path), repeat(suspect_path), repeat(img_size)))
-                #df_report = pd.DataFrame(res, columns=['img', 'stddev', 'low_freq_prop', 'lap_var', 'exception', 'suspect'])
+                res = pool.starmap(img_tools.proc_img, zip(img_files, repeat(subdir_output_path),
+                                                           repeat(suspect_path), repeat(patches), repeat(img_size)))
                 res.append(self.df_dataset_report)
                 self.df_dataset_report = pd.concat(res)
         finally:
             pool.close()
             pool.join()
 
-        self.df_dataset_report.to_csv('foo.csv')
-        print("Done.")
+        imgs_generated += self.df_dataset_report.shape[0]
+        self.df_dataset_report.to_csv(f'lroc_dataset_report_phase_{lroc_dtype}_{lroc_phase}_is_{img_size}_patches_{patches}.csv')
+        print(f"Done. Generated {imgs_generated}, from {imgs_used}.")
 
     def describe(self):
         """Provide useful information about datasets"""
