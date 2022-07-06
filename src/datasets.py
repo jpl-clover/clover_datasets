@@ -105,7 +105,9 @@ class CLOVERDatasets(object):
                    subdir_output_path.mkdir(exist_ok=True)
                    img_files = [os.path.join(subdir.path, f) for f in os.listdir(subdir.path)
                                 if os.path.isfile(os.path.join(subdir.path, f))]
-                   img_files = random.sample(img_files, num_imgs_per_subdir)
+
+                   if num_imgs_per_subdir < len(img_files):
+                       img_files = random.sample(img_files, num_imgs_per_subdir)
                    imgs_used += len(img_files)
                 else:
                     continue
