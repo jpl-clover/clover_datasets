@@ -8,7 +8,7 @@ import pandas as pd
 import cv2
 
 
-def proc_img(img_file, img_output_dir, suspect_dir, patches, img_size: int = 256):
+def proc_img(img_file, img_output_dir, suspect_dir, patches: int = 2, img_size: int = 256):
     """Process single image through pipeline"""
     f = Path(img_file)
     error = False
